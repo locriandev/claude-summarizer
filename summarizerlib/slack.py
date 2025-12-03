@@ -46,34 +46,6 @@ class SlackThreadFinder:
             self.logger.warning('Failed retrieve user name for ID %s: %s', user_id, e)
             return user_id  # Fallback to user ID if lookup fails
 
-    def gather_messages(self, query: str) -> list:
-        """
-        Search Slack for messages containing the 'art-attention' label
-        and not marked as resolved.
-
-        :param query: query used to select Slack messages
-        :return: A list of matching Slack messages sorted by timestamp.
-        """
-        all_matches = []
-        next_cursor = '*'
-
-        while next_cursor:
-            # Use Slack search API to find messages with label 'art-attention' and without 'art-attention-resolved'
-            slack_response = self.app.client.search_messages(
-                token=self.user_token,
-                query=query,
-                cursor=next_cursor
-            )
-            messages = slack_response.get('messages', {})
-            all_matches.extend(messages.get('matches', []))
-
-            # Handle pagination using response metadata
-            response_metadata = slack_response.get('response_metadata', {})
-            next_cursor = response_metadata.get('next_cursor', None)
-
-        # Return messages sorted by timestamp
-        return sorted(all_matches, key=lambda m: m.get('ts', '0.0'))
-
     def fetch_thread_conversation(self, channel: str, thread_ts: str) -> list:
         """
         Fetch the full thread of messages from a channel using a thread timestamp.
