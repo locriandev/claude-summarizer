@@ -1,6 +1,6 @@
 # Slack Thread Summarizer
 
-A Slack thread summarizer that uses a Claude AI to generate AI-powered summaries of Slack conversations.
+A Slack thread summarizer that uses Claude AI to generate AI-powered summaries of Slack conversations.
 
 ## Quick Start
 
@@ -9,11 +9,7 @@ A Slack thread summarizer that uses a Claude AI to generate AI-powered summaries
 1. Python 3.x with virtualenv support
 2. Slack bot token and user token
 
-### Setup
-
-#### Option 1: Standalone Wrapper Script (Recommended)
-
-For the most convenient experience, install the wrapper script that handles virtual environments automatically:
+### Installation
 
 1. Clone this repository:
    ```bash
@@ -21,68 +17,50 @@ For the most convenient experience, install the wrapper script that handles virt
    cd claude-summarizer
    ```
 
-2. Create a virtual environment and install dependencies:
+2. Run the installation script:
    ```bash
-   python3 -m venv .venv
-   .venv/bin/pip install -r requirements.txt
+   ./install.sh
    ```
 
-3. Set up your Slack credentials as environment variables (add to your shell profile):
-   ```bash
-   export SLACK_TOKEN=xoxb-your-bot-token-here
-   export USER_TOKEN=xoxp-your-user-token-here
-   ```
+   The installer will:
+   - Prompt you for a virtualenv directory (defaults to `~/.virtualenvs` if you press Enter)
+   - Create a virtualenv named `claude-summarizer` in that directory
+   - Install all required dependencies from `requirements.txt`
+   - Create the `fetch-conversation` executable at `~/.local/bin/fetch-conversation`
 
-4. Edit the `slack-summarizer` script and update the `PROJECT_DIR` path:
-   ```bash
-   PROJECT_DIR="/path/to/your/claude-summarizer"
-   ```
-
-5. Install the wrapper script globally:
-   ```bash
-   chmod +x slack-summarizer
-   sudo cp slack-summarizer /usr/local/bin/
-   sudo chmod 755 /usr/local/bin/slack-summarizer
-   ```
-
-6. Now you can run from anywhere:
-   ```bash
-   slack-summarizer "https://redhat-internal.slack.com/archives/CB95J6R4N/p1764683404081219"
-   ```
-
-#### Option 2: Manual Virtual Environment
-
-1. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv ~/.virtualenvs/summarizer
-   ~/.virtualenvs/summarizer/bin/pip install -r requirements.txt
-   ```
-
-2. Create a `.env` file with your Slack credentials:
+3. Create a `.env` file in the project directory with your Slack credentials:
    ```
    SLACK_TOKEN=xoxb-your-bot-token-here
    USER_TOKEN=xoxp-your-user-token-here
    ```
 
-3. Run the script manually:
+4. Ensure `~/.local/bin` is in your PATH (add to your `~/.bashrc` or `~/.zshrc`):
    ```bash
-   ~/.virtualenvs/summarizer/bin/python fetch_conversation.py "https://slack-url..."
+   export PATH="$HOME/.local/bin:$PATH"
    ```
 
 ### Usage
 
-#### With Wrapper Script (Option 1)
+#### Command Line
+After installation, you can use the `fetch-conversation` command from anywhere:
+
 ```bash
-slack-summarizer "https://redhat-internal.slack.com/archives/CB95J6R4N/p1764683404081219"
+fetch-conversation "https://redhat-internal.slack.com/archives/CB95J6R4N/p1764683404081219"
 ```
 
-#### Manual Execution (Option 2)
-```bash
-# Activate virtual environment first
-source ~/.virtualenvs/summarizer/bin/activate
-# Then run the script
-python fetch_conversation.py "https://redhat-internal.slack.com/archives/CB95J6R4N/p1764683404081219"
+#### With Claude Code
+If you're using [Claude Code](https://claude.com/claude-code), you can use the `/slack_thread` slash command for an even better experience:
+
 ```
+/slack_thread https://redhat-internal.slack.com/archives/CB95J6R4N/p1764683404081219
+```
+
+Claude will automatically fetch the conversation and provide a structured TL;DR summary including:
+- Core problem/topic
+- Resolution or action plan
+- Components involved
+- Issues to fix
+- Relevant links
 
 ### Getting Slack Tokens
 
