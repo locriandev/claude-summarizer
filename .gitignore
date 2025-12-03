@@ -1,1 +1,5 @@
 .env
+.venv
+*.pyc
+settings.local.json
+.idea
