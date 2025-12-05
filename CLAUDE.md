@@ -2,175 +2,71 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Overview
+## Project Overview
 
-This is a Slack thread summarizer that uses a locally-hosted LLaMA model to generate summaries of Slack conversations. The application fetches Slack threads (either by permalink or by searching for specific labels), formats them, and sends them to a LLaMA inference server for summarization.
+This is a Slack Thread Summarizer that fetches Slack conversations and formats them for AI-powered summarization. The tool can be run as a standalone command-line script or integrated with Claude Code via a slash command.
 
 ## Architecture
 
-The codebase consists of three main components:
+### Core Components
 
-1. **FastAPI Application** (`app.py`): Exposes REST endpoints for summarization
-   - `/summarize-url`: Summarizes a single Slack thread given its permalink
-   - `/summarize-art-attention`: Summarizes all threads with `:art-attention:` label (excluding resolved ones)
+- `fetch_conversation.py`: Main entry point script that orchestrates fetching and formatting Slack threads
+- `summarizerlib/slack.py`: Contains `SlackThreadFinder` class with core Slack API integration logic
+  - `fetch_thread_by_permalink()`: Parses Slack permalink URLs and fetches thread messages
+  - `fetch_thread_conversation()`: Calls Slack API to retrieve thread replies
+  - `format_thread_for_summary()`: Formats messages into readable conversation format
+  - `get_username()`: Resolves user IDs to human-readable names (with caching)
 
-2. **Slack Integration** (`summarizerlib/slack.py`): Handles Slack API interactions
-   - `SlackThreadFinder`: Searches for messages, fetches threads, resolves user IDs to names
-   - Uses both bot token (`SLACK_TOKEN`) and user token (`USER_TOKEN`) for different API endpoints
+### Authentication
 
-3. **Summary Generation** (`summarizerlib/summary.py`): Orchestrates the summarization process
-   - `SummaryGenerator`: Fetches threads from Slack, formats them, sends to LLaMA server
-   - Uses Jinja2 template (`prompt-template.j2`) loaded from `PROMPT_TEMPLATE` environment variable
-   - Communicates with LLaMA server via HTTP POST to `/completion` endpoint
+The application requires two Slack tokens stored in a `.env` file:
+- `SLACK_TOKEN`: Bot token (xoxb-...) for Slack API access
+- `USER_TOKEN`: User token (xoxp-...) for searching messages
 
-## Quick Start: Summarizing a Slack Conversation
+Tokens are loaded using `python-dotenv` in fetch_conversation.py:15-23.
 
-When the user asks to summarize a Slack conversation (e.g., "summarize https://redhat-internal.slack.com/archives/C099GCW0B0Q/p1763631092378489"), follow these steps:
+### Permalink Parsing
 
-### 1. Prerequisites Check
-
-**Virtual Environment**: Check if the `summarizer` virtualenv exists at `~/.virtualenvs/summarizer/bin/python`
-   - If it doesn't exist, ask the user if you should create it and install dependencies from `requirements.txt`
-   - To create the virtualenv:
-     ```bash
-     python3 -m venv ~/.virtualenvs/summarizer
-     ~/.virtualenvs/summarizer/bin/pip install -r requirements.txt
-     ```
-
-**Credentials**: Check if `.env` file exists in the repository root
-   - If it doesn't exist, ask the user to create it with the following format:
-     ```
-     SLACK_TOKEN=xoxb-your-bot-token-here
-     USER_TOKEN=xoxp-your-user-token-here
-     ```
-   - The `.env` file should contain:
-     - `SLACK_TOKEN`: Bot token for Slack API access
-     - `USER_TOKEN`: User token for Slack search API
-
-### 2. Fetch the Conversation
-
-Use the `fetch_conversation.py` script to retrieve the Slack thread:
-
-```bash
-~/.virtualenvs/summarizer/bin/python fetch_conversation.py "https://redhat-internal.slack.com/archives/..."
+Slack permalinks follow the format:
+```
+https://{workspace}.slack.com/archives/{CHANNEL_ID}/p{TIMESTAMP}
 ```
 
-This script will:
-- Load credentials from the `.env` file
-- Fetch the thread using `SlackThreadFinder`
-- Format the conversation for easy reading and summarization
-- Display the formatted output
-
-### 3. Provide the Summary
-
-After fetching the formatted conversation, analyze it and provide a TL;DR summary that includes:
-- **Core Problem**: Describe the main issue or topic being discussed
-- **Resolution/Action Plan**: Identify the current solution or next steps
-- **Components Involved**: List specific software components, repositories, or Jira tickets mentioned
-- **Issues to Fix**: Highlight any problems that need addressing
-- **Relevant Links**: Include important URLs from the conversation (GitHub commits, builds, documentation, etc.)
-
-## Environment Variables
-
-The application requires these environment variables:
-
-- `SLACK_TOKEN`: Bot token for Slack API access (stored in `.env`)
-- `USER_TOKEN`: User token for Slack search API (stored in `.env`)
-- `PROMPT_TEMPLATE`: The content of the Jinja2 prompt template (loaded from `prompt-template.j2`)
-- `LLAMA_SERVER_HOST`: Hostname of LLaMA server (default: `localhost`)
-- `LLAMA_SERVER_PORT`: Port of LLaMA server (default: `8080`)
+The timestamp in the URL (16 digits) is converted to Slack's internal format by inserting a decimal point after the 10th digit (e.g., `1234567890123456` becomes `1234567890.123456`). See summarizerlib/slack.py:87-95.
 
 ## Development Commands
 
-### Running the Application Locally
-
-1. **Start the LLaMA server** (using podman):
-   ```bash
-   podman network create llama-net
-   podman run -d --name llama-server \
-     --network llama-net \
-     -p 8080:8080 \
-     -v "$(pwd)/models:/models:z" \
-     ghcr.io/ggml-org/llama.cpp:server \
-     -m /models/mistral-7b-instruct-v0.2.Q5_K_M.gguf \
-     -c 4096 \
-     --host 0.0.0.0 \
-     --port 8080 \
-     --threads 8 \
-     --parallel 2 \
-     --rope-frequency-base 1000000 \
-     --temperature 0.3
-   ```
-
-2. **Set environment variables**:
-   ```bash
-   export SLACK_TOKEN=your-slack-token
-   export USER_TOKEN=your-user-token
-   export PROMPT_TEMPLATE="$(cat prompt-template.j2)"
-   ```
-
-3. **Run the FastAPI application**:
-   ```bash
-   python app.py
-   ```
-   Or using uvicorn directly:
-   ```bash
-   uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-### Testing the API
-
-Test with a specific Slack permalink:
+### Setup
 ```bash
-curl "http://127.0.0.1:8000/summarize-url?url=https://redhat-internal.slack.com/archives/GDBRP5YJH/p1746057618660169"
+./install.sh
+```
+Creates virtualenv at a specified location (default: `~/.virtualenvs/claude-summarizer`), installs dependencies, and creates the `fetch-conversation` executable at `~/.local/bin/fetch-conversation`.
+
+### Install Dependencies
+```bash
+pip install -r requirements.txt
 ```
 
-Test the art-attention summarizer:
+### Run Directly
 ```bash
-curl "http://127.0.0.1:8000/summarize-art-attention"
+python fetch_conversation.py "https://redhat-internal.slack.com/archives/{CHANNEL_ID}/p{TIMESTAMP}"
 ```
 
-Test the LLaMA server directly:
+### Run via Installed Command
 ```bash
-curl --request POST \
-     --url http://0.0.0.0:8080/completion \
-     --header "Content-Type: application/json" \
-     --data '{"prompt": "what is the result of 2+2?","n_predict": 128}'
+fetch-conversation "https://redhat-internal.slack.com/archives/{CHANNEL_ID}/p{TIMESTAMP}"
 ```
 
-### Building Containers
+## Claude Code Integration
 
-Build the API container:
-```bash
-podman build -t api -f container/Dockerfile-api .
+The `.claude/commands/slack_thread.md` slash command enables usage within Claude Code:
+```
+/slack_thread <slack-permalink>
 ```
 
-Run the API container:
-```bash
-podman run -d --name api \
-  --network llama-net \
-  -p 8000:8000 \
-  -e USER_TOKEN=${USER_TOKEN} \
-  -e SLACK_TOKEN=${SLACK_TOKEN} \
-  -e PROMPT_TEMPLATE="$(cat prompt-template.j2)" \
-  -e LLAMA_SERVER_HOST="llama-server" \
-  -e LLAMA_SERVER_PORT="8080" \
-  api
-```
-
-## OpenShift Deployment
-
-The `container/resources/` directory contains Kubernetes/OpenShift manifests for deploying both the LLaMA server and the API application. See `container/README.md` for detailed deployment instructions.
-
-Key OpenShift resources:
-- `llama-model-pvc.yaml`: PersistentVolumeClaim for storing the LLaMA model
-- `llama-deployment.yaml` & `llama-service.yaml`: LLaMA server deployment and service
-- `slack-summarizer-deployment.yaml`: API application deployment (requires `slack-credentials` secret)
-- `slack-summarizer-route.yaml`: Route with extended timeout for slow model responses
-
-## Code Style Notes
-
-- Python files use type hints throughout
-- Functions have docstrings in triple-quote format with Args/Return Values sections
-- Private functions (used only within a module) are prefixed with underscore
-- The prompt template is stored in `prompt-template.j2` and loaded as an environment variable
+This command calls the `fetch-conversation` executable and expects Claude to provide a structured summary including:
+- Core problem/topic
+- Resolution or action plan
+- Components involved
+- Issues to fix
+- Relevant links
